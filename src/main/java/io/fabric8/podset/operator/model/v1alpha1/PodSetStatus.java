@@ -1,6 +1,8 @@
 package io.fabric8.podset.operator.model.v1alpha1;
 
 public class PodSetStatus {
+    private int availableReplicas;
+
     public int getAvailableReplicas() {
         return availableReplicas;
     }
@@ -13,6 +15,4 @@ public class PodSetStatus {
     public String toString() {
         return "PodSetStatus{ availableReplicas=" + availableReplicas + "}";
     }
-
-    private int availableReplicas;
 }

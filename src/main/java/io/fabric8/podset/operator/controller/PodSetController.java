@@ -14,17 +14,15 @@ import io.fabric8.podset.operator.model.v1alpha1.PodSet;
 import io.fabric8.podset.operator.model.v1alpha1.PodSetList;
 import io.fabric8.podset.operator.model.v1alpha1.PodSetStatus;
 
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class PodSetController {
+    public static final Logger logger = Logger.getLogger(PodSetController.class.getName());
+    public static final String APP_LABEL = "app";
     private final BlockingQueue<String> workqueue;
     private final SharedIndexInformer<PodSet> podSetInformer;
     private final SharedIndexInformer<Pod> podInformer;
@@ -32,8 +30,6 @@ public class PodSetController {
     private final Lister<Pod> podLister;
     private final KubernetesClient kubernetesClient;
     private final MixedOperation<PodSet, PodSetList, Resource<PodSet>> podSetClient;
-    public static final Logger logger = Logger.getLogger(PodSetController.class.getName());
-    public static final String APP_LABEL = "app";
 
     public PodSetController(KubernetesClient kubernetesClient, MixedOperation<PodSet, PodSetList, Resource<PodSet>> podSetClient, SharedIndexInformer<Pod> podInformer, SharedIndexInformer<PodSet> podSetInformer, String namespace) {
         this.kubernetesClient = kubernetesClient;
@@ -205,13 +201,13 @@ public class PodSetController {
     private Pod createNewPod(PodSet podSet) {
         return new PodBuilder()
                 .withNewMetadata()
-                  .withGenerateName(podSet.getMetadata().getName() + "-pod")
-                  .withNamespace(podSet.getMetadata().getNamespace())
-                  .withLabels(Collections.singletonMap(APP_LABEL, podSet.getMetadata().getName()))
-                  .addNewOwnerReference().withController(true).withKind("PodSet").withApiVersion("demo.k8s.io/v1alpha1").withName(podSet.getMetadata().getName()).withNewUid(podSet.getMetadata().getUid()).endOwnerReference()
+                .withGenerateName(podSet.getMetadata().getName() + "-pod")
+                .withNamespace(podSet.getMetadata().getNamespace())
+                .withLabels(Collections.singletonMap(APP_LABEL, podSet.getMetadata().getName()))
+                .addNewOwnerReference().withController(true).withKind("PodSet").withApiVersion("demo.k8s.io/v1alpha1").withName(podSet.getMetadata().getName()).withNewUid(podSet.getMetadata().getUid()).endOwnerReference()
                 .endMetadata()
                 .withNewSpec()
-                  .addNewContainer().withName("busybox").withImage("busybox").withCommand("sleep", "3600").endContainer()
+                .addNewContainer().withName("busybox").withImage("busybox").withCommand("sleep", "3600").endContainer()
                 .endSpec()
                 .build();
     }

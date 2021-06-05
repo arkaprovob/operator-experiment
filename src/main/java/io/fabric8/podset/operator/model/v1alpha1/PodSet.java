@@ -7,4 +7,5 @@ import io.fabric8.kubernetes.model.annotation.Version;
 
 @Version("v1alpha1")
 @Group("demo.fabric8.io")
-public class PodSet extends CustomResource<PodSetSpec, PodSetStatus> implements Namespaced { }
+public class PodSet extends CustomResource<PodSetSpec, PodSetStatus> implements Namespaced {
+}

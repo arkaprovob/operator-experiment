@@ -24,10 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @EnableKubernetesMockClient
 class PodSetControllerTest {
+    private static final long RESYNC_PERIOD_MILLIS = 10 * 60 * 1000L;
     private KubernetesMockServer server;
     private KubernetesClient client;
-
-    private static final long RESYNC_PERIOD_MILLIS = 10 * 60 * 1000L;
 
     @Test
     @DisplayName("Should create pods for with respect to a specified PodSet")

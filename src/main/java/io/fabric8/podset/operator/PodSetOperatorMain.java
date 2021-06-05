@@ -17,7 +17,7 @@ import java.util.logging.Logger;
 
 /**
  * Main Class for Operator, you can run this sample using this command:
- *
+ * <p>
  * mvn exec:java -Dexec.mainClass=io.fabric8.podset.operator.PodSetOperatorMain
  */
 public class PodSetOperatorMain {
