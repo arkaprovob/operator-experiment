@@ -102,6 +102,7 @@ public class PodSetController {
                 // Get the PodSet resource's name from key which is in format namespace/name
                 String name = key.split("/")[1];
                 PodSet podSet = podSetLister.get(key.split("/")[1]);
+                podSet.setUniqueID(UUID.randomUUID());
                 if (podSet == null) {
                     logger.log(Level.SEVERE, String.format("PodSet %s in workqueue no longer exists", name));
                     return;
@@ -194,6 +195,10 @@ public class PodSetController {
     private void updateAvailableReplicasInPodSetStatus(PodSet podSet, int replicas) {
         PodSetStatus podSetStatus = new PodSetStatus();
         podSetStatus.setAvailableReplicas(replicas);
+
+        List<String> labels = new ArrayList<>();
+        labels.add(podSet.getUniqueID().toString());
+        podSetStatus.setLabels(labels);
         podSet.setStatus(podSetStatus);
         podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
     }

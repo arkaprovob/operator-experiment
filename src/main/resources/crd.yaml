@@ -22,6 +22,10 @@ spec:
               properties:
                 availableReplicas:
                   type: integer
+                labels:
+                  type: array
+                  items:
+                    type: string
       subresources:
         status: { }
   names:
