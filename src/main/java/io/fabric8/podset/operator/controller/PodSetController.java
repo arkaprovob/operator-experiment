@@ -14,6 +14,8 @@ import io.fabric8.podset.operator.model.v1alpha1.PodSet;
 import io.fabric8.podset.operator.model.v1alpha1.PodSetList;
 import io.fabric8.podset.operator.model.v1alpha1.PodSetStatus;
 
+import java.nio.charset.Charset;
+import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -116,6 +118,7 @@ public class PodSetController {
         }
     }
 
+
     /**
      * Tries to achieve the desired state for podset.
      *
@@ -195,12 +198,15 @@ public class PodSetController {
     private void updateAvailableReplicasInPodSetStatus(PodSet podSet, int replicas) {
         PodSetStatus podSetStatus = new PodSetStatus();
         podSetStatus.setAvailableReplicas(replicas);
-
         List<String> labels = new ArrayList<>();
         labels.add(podSet.getUniqueID().toString());
         podSetStatus.setLabels(labels);
         podSet.setStatus(podSetStatus);
-        podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
+        try{
+            podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
+        }catch (Exception e){
+
+        }
     }
 
     private Pod createNewPod(PodSet podSet) {
