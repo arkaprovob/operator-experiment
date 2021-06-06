@@ -12,5 +12,5 @@ import java.util.List;
 @ToString
 public class PodSetStatus {
     private int availableReplicas;
-    private List<String> labels;
+    private String labels;
 }

@@ -198,14 +198,14 @@ public class PodSetController {
     private void updateAvailableReplicasInPodSetStatus(PodSet podSet, int replicas) {
         PodSetStatus podSetStatus = new PodSetStatus();
         podSetStatus.setAvailableReplicas(replicas);
-        List<String> labels = new ArrayList<>();
-        labels.add(podSet.getUniqueID().toString());
-        podSetStatus.setLabels(labels);
+        podSetStatus.setLabels(podSet.getUniqueID().toString());
+
         podSet.setStatus(podSetStatus);
         try{
             podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
         }catch (Exception e){
-
+            System.out.println(e.getMessage());
+            System.exit(0);
         }
     }
 

@@ -23,9 +23,7 @@ spec:
                 availableReplicas:
                   type: integer
                 labels:
-                  type: array
-                  items:
-                    type: string
+                  type: string
       subresources:
         status: { }
   names:
