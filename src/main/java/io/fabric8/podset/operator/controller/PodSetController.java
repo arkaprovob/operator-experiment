@@ -48,12 +48,12 @@ public class PodSetController {
         podSetInformer.addEventHandler(new ResourceEventHandler<PodSet>() {
             @Override
             public void onAdd(PodSet podSet) {
-                enqueuePodSet(podSet);
+                handleCreatedPodSet(podSet);
             }
 
             @Override
             public void onUpdate(PodSet podSet, PodSet newPodSet) {
-                enqueuePodSet(newPodSet);
+                //enqueuePodSet(newPodSet);
             }
 
             @Override
@@ -83,6 +83,26 @@ public class PodSetController {
         });
     }
 
+    private void handleCreatedPodSet(PodSet pSet){
+        logger.info("enqueuePodSet({})",pSet.getMetadata().getName());
+        String key = Cache.metaNamespaceKeyFunc(pSet);
+        logger.info("Going to handle key {}", key);
+        String name = key.split("/")[1];
+        PodSet podSet = podSetLister.get(key.split("/")[1]);
+        podSet.setUniqueID(UUID.randomUUID().toString());
+        reconcile(podSet);
+    }
+
+    private void enqueuePodSet(PodSet podSet) {
+        logger.info("enqueuePodSet({})",podSet.getMetadata().getName());
+        String key = Cache.metaNamespaceKeyFunc(podSet);
+        logger.info("Going to enqueue key {}", key);
+        if (key != null && !key.isEmpty()) {
+            logger.info("Adding item to workqueue");
+            workqueue.add(key);
+        }
+    }
+
     public void run() {
         logger.info("Starting PodSet controller");
         while (!podInformer.hasSynced() || !podSetInformer.hasSynced()) {
@@ -105,7 +125,7 @@ public class PodSetController {
                 // Get the PodSet resource's name from key which is in format namespace/name
                 String name = key.split("/")[1];
                 PodSet podSet = podSetLister.get(key.split("/")[1]);
-                podSet.setUniqueID("FIXED");
+                //podSet.setUniqueID("FIXED");
                 if (podSet == null) {
                     logger.error("PodSet {} in workqueue no longer exists", name);
                     return;
@@ -173,15 +193,7 @@ public class PodSetController {
         return podNames;
     }
 
-    private void enqueuePodSet(PodSet podSet) {
-        logger.info("enqueuePodSet({})",podSet.getMetadata().getName());
-        String key = Cache.metaNamespaceKeyFunc(podSet);
-        logger.info("Going to enqueue key {}", key);
-        if (key != null && !key.isEmpty()) {
-            logger.info("Adding item to workqueue");
-            workqueue.add(key);
-        }
-    }
+
 
     private void handlePodObject(Pod pod) {
         logger.info("handlePodObject({})", pod.getMetadata().getName());
@@ -197,6 +209,7 @@ public class PodSetController {
     }
 
     private void updateAvailableReplicasInPodSetStatus(PodSet podSet, int replicas) {
+        logger.info("Getting UniQUE ID OF PODSET "+podSet.getUniqueID());
         PodSetStatus podSetStatus = new PodSetStatus(replicas,podSet.getUniqueID().toString());
         podSet.setStatus(podSetStatus);
         try{
