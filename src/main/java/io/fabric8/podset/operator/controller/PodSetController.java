@@ -88,9 +88,33 @@ public class PodSetController {
         String key = Cache.metaNamespaceKeyFunc(pSet);
         logger.info("Going to handle key {}", key);
         String name = key.split("/")[1];
-        PodSet podSet = podSetLister.get(key.split("/")[1]);
+        PodSet podSet = podSetLister.get(key.split("/")[1]); // extra step
         podSet.setUniqueID(UUID.randomUUID().toString());
-        reconcile(podSet);
+        List<String> pods = podCountByLabel(APP_LABEL, podSet.getMetadata().getName());
+
+        if (pods.isEmpty()) {
+            createPods(podSet.getSpec().getReplicas(), podSet);
+            return;
+        }
+        int existingPods = pods.size();
+        if (existingPods < podSet.getSpec().getReplicas()) {
+            createPods(podSet.getSpec().getReplicas() - existingPods, podSet);
+        }
+        int diff = existingPods - podSet.getSpec().getReplicas();
+        for (; diff > 0; diff--) {
+            String podName = pods.remove(0);
+            kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).withName(podName).delete();
+        }
+        logger.info("Getting UniQUE ID OF PODSET {}",podSet.getUniqueID());
+        PodSetStatus podSetStatus = new PodSetStatus(podSet.getSpec().getReplicas(),podSet.getUniqueID().toString());
+        podSet.setStatus(podSetStatus);
+        try{
+            podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
+        }catch (Exception e){
+            logger.info("failed  {} ",e.getMessage());
+            System.exit(0);
+        }
+
     }
 
     private void enqueuePodSet(PodSet podSet) {
@@ -125,7 +149,6 @@ public class PodSetController {
                 // Get the PodSet resource's name from key which is in format namespace/name
                 String name = key.split("/")[1];
                 PodSet podSet = podSetLister.get(key.split("/")[1]);
-                //podSet.setUniqueID("FIXED");
                 if (podSet == null) {
                     logger.error("PodSet {} in workqueue no longer exists", name);
                     return;
