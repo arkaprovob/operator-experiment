@@ -15,6 +15,10 @@ public class PodSetStatus {
     public PodSetStatus() {
     }
 
+    public PodSetStatus(int availableReplicas) {
+        this.availableReplicas = availableReplicas;
+    }
+
     public PodSetStatus(int availableReplicas, String labels) {
         this.availableReplicas = availableReplicas;
         this.labels = labels;

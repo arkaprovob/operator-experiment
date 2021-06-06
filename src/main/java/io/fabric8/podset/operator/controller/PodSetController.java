@@ -17,11 +17,14 @@ import io.fabric8.podset.operator.model.v1.PodSetStatus;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class PodSetController {
-    public static final Logger logger = Logger.getLogger(PodSetController.class.getName());
+    public static final Logger logger = LoggerFactory.getLogger(PodSetController.class);
     public static final String APP_LABEL = "app";
     private final BlockingQueue<String> workqueue;
     private final SharedIndexInformer<PodSet> podSetInformer;
@@ -55,7 +58,7 @@ public class PodSetController {
 
             @Override
             public void onDelete(PodSet podSet, boolean b) {
-                // Do nothing
+                logger.info("deleting pod set");
             }
         });
 
@@ -81,22 +84,22 @@ public class PodSetController {
     }
 
     public void run() {
-        logger.log(Level.INFO, "Starting PodSet controller");
+        logger.info("Starting PodSet controller");
         while (!podInformer.hasSynced() || !podSetInformer.hasSynced()) {
             // Wait till Informer syncs
         }
 
         while (true) {
             try {
-                logger.log(Level.INFO, "trying to fetch item from workqueue...");
+                logger.info("trying to fetch item from workqueue...");
                 if (workqueue.isEmpty()) {
-                    logger.log(Level.INFO, "Work Queue is empty");
+                    logger.info("Work Queue is empty");
                 }
                 String key = workqueue.take();
                 Objects.requireNonNull(key, "key can't be null");
-                logger.log(Level.INFO, String.format("Got %s", key));
+                logger.info("Got key : - {}", key);
                 if (key.isEmpty() || (!key.contains("/"))) {
-                    logger.log(Level.WARNING, String.format("invalid resource key: %s", key));
+                    logger.warn("invalid resource key: {}", key);
                 }
 
                 // Get the PodSet resource's name from key which is in format namespace/name
@@ -104,14 +107,14 @@ public class PodSetController {
                 PodSet podSet = podSetLister.get(key.split("/")[1]);
                 podSet.setUniqueID("FIXED");
                 if (podSet == null) {
-                    logger.log(Level.SEVERE, String.format("PodSet %s in workqueue no longer exists", name));
+                    logger.error("PodSet {} in workqueue no longer exists", name);
                     return;
                 }
                 reconcile(podSet);
 
             } catch (InterruptedException interruptedException) {
                 Thread.currentThread().interrupt();
-                logger.log(Level.SEVERE, "controller interrupted..");
+                logger.error("controller interrupted..");
             }
         }
     }
@@ -150,7 +153,6 @@ public class PodSetController {
     private void createPods(int numberOfPods, PodSet podSet) {
         for (int index = 0; index < numberOfPods; index++) {
             Pod pod = createNewPod(podSet);
-            System.out.println("SKIPPED POD CREATION");
             kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).create(pod);
         }
     }
@@ -167,22 +169,22 @@ public class PodSetController {
             }
         }
 
-        logger.log(Level.INFO, String.format("count: %d", podNames.size()));
+        logger.info("count: {}", podNames.size());
         return podNames;
     }
 
     private void enqueuePodSet(PodSet podSet) {
-        logger.log(Level.INFO, "enqueuePodSet(" + podSet.getMetadata().getName() + ")");
+        logger.info("enqueuePodSet({})",podSet.getMetadata().getName());
         String key = Cache.metaNamespaceKeyFunc(podSet);
-        logger.log(Level.INFO, String.format("Going to enqueue key %s", key));
+        logger.info("Going to enqueue key {}", key);
         if (key != null && !key.isEmpty()) {
-            logger.log(Level.INFO, "Adding item to workqueue");
+            logger.info("Adding item to workqueue");
             workqueue.add(key);
         }
     }
 
     private void handlePodObject(Pod pod) {
-        logger.log(Level.INFO, "handlePodObject(" + pod.getMetadata().getName() + ")");
+        logger.info("handlePodObject({})", pod.getMetadata().getName());
         OwnerReference ownerReference = getControllerOf(pod);
         Objects.requireNonNull(ownerReference);
         if (!ownerReference.getKind().equalsIgnoreCase("PodSet")) {
@@ -200,7 +202,7 @@ public class PodSetController {
         try{
             podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
         }catch (Exception e){
-            System.out.println(e.getMessage());
+            logger.info("failed  {} ",e.getMessage());
             System.exit(0);
         }
     }
