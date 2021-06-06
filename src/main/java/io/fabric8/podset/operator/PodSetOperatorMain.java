@@ -9,8 +9,8 @@ import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
 import io.fabric8.podset.operator.controller.PodSetController;
-import io.fabric8.podset.operator.model.v1alpha1.PodSet;
-import io.fabric8.podset.operator.model.v1alpha1.PodSetList;
+import io.fabric8.podset.operator.model.v1.PodSet;
+import io.fabric8.podset.operator.model.v1.PodSetList;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;

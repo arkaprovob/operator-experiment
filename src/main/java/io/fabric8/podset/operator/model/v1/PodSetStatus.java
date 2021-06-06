@@ -1,10 +1,8 @@
-package io.fabric8.podset.operator.model.v1alpha1;
+package io.fabric8.podset.operator.model.v1;
 
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-
-import java.util.List;
 
 
 @Getter

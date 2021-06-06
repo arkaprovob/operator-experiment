@@ -1,4 +1,4 @@
-package io.fabric8.podset.operator.model.v1alpha1;
+package io.fabric8.podset.operator.model.v1;
 
 import io.fabric8.kubernetes.api.model.Namespaced;
 import io.fabric8.kubernetes.client.CustomResource;
@@ -10,7 +10,7 @@ import lombok.ToString;
 
 import java.util.UUID;
 
-@Version("v1alpha1")
+@Version("v1")
 @Group("demo.fabric8.io")
 @Getter
 @Setter

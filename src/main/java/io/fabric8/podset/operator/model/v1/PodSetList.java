@@ -1,4 +1,4 @@
-package io.fabric8.podset.operator.model.v1alpha1;
+package io.fabric8.podset.operator.model.v1;
 
 import io.fabric8.kubernetes.client.CustomResourceList;
 

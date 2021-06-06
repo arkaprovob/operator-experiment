@@ -10,12 +10,10 @@ import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.fabric8.kubernetes.client.informers.cache.Cache;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
-import io.fabric8.podset.operator.model.v1alpha1.PodSet;
-import io.fabric8.podset.operator.model.v1alpha1.PodSetList;
-import io.fabric8.podset.operator.model.v1alpha1.PodSetStatus;
+import io.fabric8.podset.operator.model.v1.PodSet;
+import io.fabric8.podset.operator.model.v1.PodSetList;
+import io.fabric8.podset.operator.model.v1.PodSetStatus;
 
-import java.nio.charset.Charset;
-import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -198,8 +196,7 @@ public class PodSetController {
     private void updateAvailableReplicasInPodSetStatus(PodSet podSet, int replicas) {
         PodSetStatus podSetStatus = new PodSetStatus();
         podSetStatus.setAvailableReplicas(replicas);
-        podSetStatus.setLabels(podSet.getUniqueID().toString());
-
+        //podSetStatus.setLabels(podSet.getUniqueID().toString());
         podSet.setStatus(podSetStatus);
         try{
             podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
@@ -215,7 +212,7 @@ public class PodSetController {
                 .withGenerateName(podSet.getMetadata().getName() + "-pod")
                 .withNamespace(podSet.getMetadata().getNamespace())
                 .withLabels(Collections.singletonMap(APP_LABEL, podSet.getMetadata().getName()))
-                .addNewOwnerReference().withController(true).withKind("PodSet").withApiVersion("demo.k8s.io/v1alpha1").withName(podSet.getMetadata().getName()).withNewUid(podSet.getMetadata().getUid()).endOwnerReference()
+                .addNewOwnerReference().withController(true).withKind("PodSet").withApiVersion("demo.k8s.io/v1").withName(podSet.getMetadata().getName()).withNewUid(podSet.getMetadata().getUid()).endOwnerReference()
                 .endMetadata()
                 .withNewSpec()
                 .addNewContainer().withName("busybox").withImage("busybox").withCommand("sleep", "3600").endContainer()

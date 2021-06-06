@@ -5,7 +5,7 @@ metadata:
 spec:
   group: demo.fabric8.io
   versions:
-    - name: v1alpha1
+    - name: v1
       served: true
       storage: true
       schema:

@@ -1,4 +1,4 @@
-apiVersion: demo.fabric8.io/v1alpha1
+apiVersion: demo.fabric8.io/v1
 kind: PodSet
 metadata:
   name: example-podset
