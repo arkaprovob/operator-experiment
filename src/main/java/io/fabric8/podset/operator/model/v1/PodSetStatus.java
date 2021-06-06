@@ -11,4 +11,12 @@ import lombok.ToString;
 public class PodSetStatus {
     private int availableReplicas;
     private String labels;
+
+    public PodSetStatus() {
+    }
+
+    public PodSetStatus(int availableReplicas, String labels) {
+        this.availableReplicas = availableReplicas;
+        this.labels = labels;
+    }
 }

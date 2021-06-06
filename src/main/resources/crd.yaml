@@ -17,6 +17,8 @@ spec:
               properties:
                 replicas:
                   type: integer
+                lmap:
+                  type: string
             status:
               type: object
               properties:

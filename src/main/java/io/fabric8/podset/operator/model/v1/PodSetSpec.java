@@ -9,4 +9,5 @@ import lombok.ToString;
 @ToString
 public class PodSetSpec {
     private int replicas;
+    private String lmap;
 }

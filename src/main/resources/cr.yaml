@@ -3,4 +3,5 @@ kind: PodSet
 metadata:
   name: example-podset
 spec:
-  replicas: 5
+  replicas: 1
+  lmap: abs

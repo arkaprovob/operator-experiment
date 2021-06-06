@@ -102,7 +102,7 @@ public class PodSetController {
                 // Get the PodSet resource's name from key which is in format namespace/name
                 String name = key.split("/")[1];
                 PodSet podSet = podSetLister.get(key.split("/")[1]);
-                podSet.setUniqueID(UUID.randomUUID());
+                podSet.setUniqueID("FIXED");
                 if (podSet == null) {
                     logger.log(Level.SEVERE, String.format("PodSet %s in workqueue no longer exists", name));
                     return;
@@ -150,6 +150,7 @@ public class PodSetController {
     private void createPods(int numberOfPods, PodSet podSet) {
         for (int index = 0; index < numberOfPods; index++) {
             Pod pod = createNewPod(podSet);
+            System.out.println("SKIPPED POD CREATION");
             kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).create(pod);
         }
     }
@@ -194,9 +195,7 @@ public class PodSetController {
     }
 
     private void updateAvailableReplicasInPodSetStatus(PodSet podSet, int replicas) {
-        PodSetStatus podSetStatus = new PodSetStatus();
-        podSetStatus.setAvailableReplicas(replicas);
-        //podSetStatus.setLabels(podSet.getUniqueID().toString());
+        PodSetStatus podSetStatus = new PodSetStatus(replicas,podSet.getUniqueID().toString());
         podSet.setStatus(podSetStatus);
         try{
             podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);

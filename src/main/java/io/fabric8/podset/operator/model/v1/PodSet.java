@@ -16,5 +16,5 @@ import java.util.UUID;
 @Setter
 @ToString
 public class PodSet extends CustomResource<PodSetSpec, PodSetStatus> implements Namespaced {
-    private UUID uniqueID;
+    private String uniqueID;
 }
