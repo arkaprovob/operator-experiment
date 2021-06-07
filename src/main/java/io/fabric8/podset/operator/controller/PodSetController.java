@@ -56,6 +56,14 @@ public class PodSetController {
 
             @Override
             public void onUpdate(PodSet podSet, PodSet newPodSet) {
+                logger.info("on-update event fired!");
+                if(Objects.isNull(podSet.getStatus().getLabels())){
+                    logger.info("Ignore this update event.. just adding label");
+                }else{
+                    logger.info("old label {} new label {}",podSet.getStatus().getLabels(),newPodSet.getStatus().getLabels());
+                }
+
+                logger.info("*********** TRIGGERED UPDATE EVENT ************");
                 //enqueuePodSet(newPodSet);
             }
 
@@ -117,7 +125,9 @@ public class PodSetController {
         PodSetStatus podSetStatus = new PodSetStatus(podSet.getSpec().getReplicas(),podSet.getUniqueID().toString());
         podSet.setStatus(podSetStatus);
         try{
+            logger.info("just before updating label");
             podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
+            logger.info("updated status code successfully");
         }catch (Exception e){
             logger.info("failed  {} ",e.getMessage());
             System.exit(0);
@@ -216,7 +226,7 @@ public class PodSetController {
         }
         PodSet podSet = podSetLister.get(ownerReference.getName());
         if (podSet != null) {
-            enqueuePodSet(podSet);
+            //enqueuePodSet(podSet);
         }
     }
 
