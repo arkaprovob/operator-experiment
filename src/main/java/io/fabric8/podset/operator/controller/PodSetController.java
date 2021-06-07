@@ -19,20 +19,23 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 
+import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+/// DELETE all POD BEFORE CREATING A NEW PODSET
 
 
 public class PodSetController {
     public static final Logger logger = LoggerFactory.getLogger(PodSetController.class);
     public static final String APP_LABEL = "app";
     private final BlockingQueue<String> workqueue;
-    private final SharedIndexInformer<PodSet> podSetInformer;
-    private final SharedIndexInformer<Pod> podInformer;
+    private final SharedIndexInformer<PodSet> podSetInformer; // does the custom resource event sourcing
+    private final SharedIndexInformer<Pod> podInformer; // does the pod event sourcing
     private final Lister<PodSet> podSetLister;
     private final Lister<Pod> podLister;
     private final KubernetesClient kubernetesClient;
-    private final MixedOperation<PodSet, PodSetList, Resource<PodSet>> podSetClient;
+    private final MixedOperation<PodSet, PodSetList, Resource<PodSet>> podSetClient; //as the name suggests client for accessing all custom resource related connections and operations
 
     public PodSetController(KubernetesClient kubernetesClient, MixedOperation<PodSet, PodSetList, Resource<PodSet>> podSetClient, SharedIndexInformer<Pod> podInformer, SharedIndexInformer<PodSet> podSetInformer, String namespace) {
         this.kubernetesClient = kubernetesClient;
@@ -85,25 +88,30 @@ public class PodSetController {
 
     private void handleCreatedPodSet(PodSet pSet){
         logger.info("enqueuePodSet({})",pSet.getMetadata().getName());
+        logger.info("podset change detected in namespace {}",pSet.getMetadata().getNamespace());
         String key = Cache.metaNamespaceKeyFunc(pSet);
         logger.info("Going to handle key {}", key);
         String name = key.split("/")[1];
-        PodSet podSet = podSetLister.get(key.split("/")[1]); // extra step
+        PodSet podSet = podSetLister.get(name); // extra step
         podSet.setUniqueID(UUID.randomUUID().toString());
         List<String> pods = podCountByLabel(APP_LABEL, podSet.getMetadata().getName());
 
         if (pods.isEmpty()) {
             createPods(podSet.getSpec().getReplicas(), podSet);
-            return;
         }
         int existingPods = pods.size();
         if (existingPods < podSet.getSpec().getReplicas()) {
             createPods(podSet.getSpec().getReplicas() - existingPods, podSet);
         }
         int diff = existingPods - podSet.getSpec().getReplicas();
-        for (; diff > 0; diff--) {
-            String podName = pods.remove(0);
-            kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).withName(podName).delete();
+        try{
+            for (; diff > 0; diff--) {
+                String podName = pods.remove(0);
+                kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).withName(podName).delete();
+            }
+        }catch (Exception e){
+            logger.error("unable to delete pod {} ",e.getMessage());
+            System.exit(0);
         }
         logger.info("Getting UniQUE ID OF PODSET {}",podSet.getUniqueID());
         PodSetStatus podSetStatus = new PodSetStatus(podSet.getSpec().getReplicas(),podSet.getUniqueID().toString());
@@ -114,7 +122,6 @@ public class PodSetController {
             logger.info("failed  {} ",e.getMessage());
             System.exit(0);
         }
-
     }
 
     private void enqueuePodSet(PodSet podSet) {
@@ -127,38 +134,14 @@ public class PodSetController {
         }
     }
 
+    @SneakyThrows
     public void run() {
         logger.info("Starting PodSet controller");
         while (!podInformer.hasSynced() || !podSetInformer.hasSynced()) {
-            // Wait till Informer syncs
+           logger.info("waiting for podInformer & podInformer");
         }
 
         while (true) {
-            try {
-                logger.info("trying to fetch item from workqueue...");
-                if (workqueue.isEmpty()) {
-                    logger.info("Work Queue is empty");
-                }
-                String key = workqueue.take();
-                Objects.requireNonNull(key, "key can't be null");
-                logger.info("Got key : - {}", key);
-                if (key.isEmpty() || (!key.contains("/"))) {
-                    logger.warn("invalid resource key: {}", key);
-                }
-
-                // Get the PodSet resource's name from key which is in format namespace/name
-                String name = key.split("/")[1];
-                PodSet podSet = podSetLister.get(key.split("/")[1]);
-                if (podSet == null) {
-                    logger.error("PodSet {} in workqueue no longer exists", name);
-                    return;
-                }
-                reconcile(podSet);
-
-            } catch (InterruptedException interruptedException) {
-                Thread.currentThread().interrupt();
-                logger.error("controller interrupted..");
-            }
         }
     }
 
@@ -194,10 +177,16 @@ public class PodSetController {
     }
 
     private void createPods(int numberOfPods, PodSet podSet) {
-        for (int index = 0; index < numberOfPods; index++) {
-            Pod pod = createNewPod(podSet);
-            kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).create(pod);
+        try{
+            for (int index = 0; index < numberOfPods; index++) {
+                Pod pod = createNewPod(podSet);
+                kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).create(pod);
+            }
+        }catch(Exception e){
+            logger.error("failed to create pod due  to {}",e.getMessage());
+            System.exit(0);
         }
+
     }
 
     private List<String> podCountByLabel(String label, String podSetName) {
@@ -233,7 +222,14 @@ public class PodSetController {
 
     private void updateAvailableReplicasInPodSetStatus(PodSet podSet, int replicas) {
         logger.info("Getting UniQUE ID OF PODSET "+podSet.getUniqueID());
-        PodSetStatus podSetStatus = new PodSetStatus(replicas,podSet.getUniqueID().toString());
+        String uniqueKey = podSet.getUniqueID();
+        if(Objects.isNull(uniqueKey)){
+            uniqueKey = UUID.randomUUID().toString();
+            logger.warn("Unique Key Does not exists {}",podSet.getMetadata().getName());
+        }
+
+
+        PodSetStatus podSetStatus = new PodSetStatus(replicas,uniqueKey);
         podSet.setStatus(podSetStatus);
         try{
             podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
