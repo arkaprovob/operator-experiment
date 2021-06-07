@@ -88,13 +88,15 @@ public class PodSetController {
     }
 
     private void handleUpdatePodSet(PodSet podSet, PodSet newPodSet) {
-        if(Objects.isNull(podSet.getStatus().getLabels()))
+        if(Objects.isNull(podSet.getStatus().getLabels())) {
             logger.info("Ignore this update event.. just adding label");
+            return;
+        }
 
         logger.info("old label {} new label {}",podSet.getStatus().getLabels(),newPodSet.getStatus().getLabels());
-
-
-
+        if(newPodSet.equals(podSet))
+            return;
+        commonPart(newPodSet,newPodSet.getStatus());
     }
 
     /*
@@ -108,11 +110,15 @@ public class PodSetController {
     }
 
     private void handleCreatedPodSet(PodSet podSet){
+        commonPart(podSet,null);
+    }
+
+    public void commonPart(PodSet podSet,PodSetStatus podSetStatus){
         logger.info("enqueuePodSet({})",podSet.getMetadata().getName());
         logger.info("podset change detected in namespace {}",podSet.getMetadata().getNamespace());
-        podSet.setUniqueID(UUID.randomUUID().toString());
+        if(Objects.isNull(podSet.getUniqueID()))
+            podSet.setUniqueID(UUID.randomUUID().toString());
         List<String> pods = podCountByLabel(APP_LABEL, podSet.getMetadata().getName());
-
         if (pods.isEmpty()) {
             createPods(podSet.getSpec().getReplicas(), podSet);
         }
@@ -130,14 +136,17 @@ public class PodSetController {
             logger.error("unable to delete pod {} ",e.getMessage());
             System.exit(0);
         }
-        logger.info("Getting UniQUE ID OF PODSET {}",podSet.getUniqueID());
-        PodSetStatus podSetStatus = new PodSetStatus(podSet.getSpec().getReplicas(),
-                podSet.getUniqueID().toString());
+        logger.info("podset unique id {}",podSet.getUniqueID());
+        updatePodSetStatus(podSet,podSetStatus);
+    }
+
+    private void updatePodSetStatus(PodSet podSet,PodSetStatus podSetStatus){
+        if (Objects.isNull(podSetStatus))
+            podSetStatus = new PodSetStatus(podSet.getSpec().getReplicas(),podSet.getUniqueID());
+
         podSet.setStatus(podSetStatus);
         try{
-            logger.info("just before updating label");
             podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
-            logger.info("updated status code successfully");
         }catch (Exception e){
             logger.info("failed  {} ",e.getMessage());
             System.exit(0);
@@ -158,35 +167,7 @@ public class PodSetController {
     }
 
 
-    /**
-     * Tries to achieve the desired state for podset.
-     *
-     * @param podSet specified podset
-     */
-    protected void reconcile(PodSet podSet) {
-        List<String> pods = podCountByLabel(APP_LABEL, podSet.getMetadata().getName());
-        if (pods.isEmpty()) {
-            createPods(podSet.getSpec().getReplicas(), podSet);
-            return;
-        }
-        int existingPods = pods.size();
 
-        // Compare it with desired state i.e spec.replicas
-        // if less then spin up pods
-        if (existingPods < podSet.getSpec().getReplicas()) {
-            createPods(podSet.getSpec().getReplicas() - existingPods, podSet);
-        }
-
-        // If more pods then delete the pods
-        int diff = existingPods - podSet.getSpec().getReplicas();
-        for (; diff > 0; diff--) {
-            String podName = pods.remove(0);
-            kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).withName(podName).delete();
-        }
-
-        // Update PodSet status
-        updateAvailableReplicasInPodSetStatus(podSet, podSet.getSpec().getReplicas());
-    }
 
     private void createPods(int numberOfPods, PodSet podSet) {
         try{
@@ -232,24 +213,6 @@ public class PodSetController {
         }
     }
 
-    private void updateAvailableReplicasInPodSetStatus(PodSet podSet, int replicas) {
-        logger.info("Getting UniQUE ID OF PODSET "+podSet.getUniqueID());
-        String uniqueKey = podSet.getUniqueID();
-        if(Objects.isNull(uniqueKey)){
-            uniqueKey = UUID.randomUUID().toString();
-            logger.warn("Unique Key Does not exists {}",podSet.getMetadata().getName());
-        }
-
-
-        PodSetStatus podSetStatus = new PodSetStatus(replicas,uniqueKey);
-        podSet.setStatus(podSetStatus);
-        try{
-            podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
-        }catch (Exception e){
-            logger.info("failed  {} ",e.getMessage());
-            System.exit(0);
-        }
-    }
 
     private Pod createNewPod(PodSet podSet) {
         return new PodBuilder()
