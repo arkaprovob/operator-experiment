@@ -57,14 +57,7 @@ public class PodSetController {
             @Override
             public void onUpdate(PodSet podSet, PodSet newPodSet) {
                 logger.info("on-update event fired!");
-                if(Objects.isNull(podSet.getStatus().getLabels())){
-                    logger.info("Ignore this update event.. just adding label");
-                }else{
-                    logger.info("old label {} new label {}",podSet.getStatus().getLabels(),newPodSet.getStatus().getLabels());
-                }
-
-                logger.info("*********** TRIGGERED UPDATE EVENT ************");
-                //enqueuePodSet(newPodSet);
+                handleUpdatePodSet(podSet,newPodSet);
             }
 
             @Override
@@ -94,13 +87,29 @@ public class PodSetController {
         });
     }
 
-    private void handleCreatedPodSet(PodSet pSet){
-        logger.info("enqueuePodSet({})",pSet.getMetadata().getName());
-        logger.info("podset change detected in namespace {}",pSet.getMetadata().getNamespace());
-        String key = Cache.metaNamespaceKeyFunc(pSet);
-        logger.info("Going to handle key {}", key);
-        String name = key.split("/")[1];
-        PodSet podSet = podSetLister.get(name); // extra step
+    private void handleUpdatePodSet(PodSet podSet, PodSet newPodSet) {
+        if(Objects.isNull(podSet.getStatus().getLabels()))
+            logger.info("Ignore this update event.. just adding label");
+
+        logger.info("old label {} new label {}",podSet.getStatus().getLabels(),newPodSet.getStatus().getLabels());
+
+
+
+    }
+
+    /*
+    * retrieve updated podset
+    * */
+    private PodSet retrievePodSet(PodSet odPodSet){
+        String key = Cache.metaNamespaceKeyFunc(odPodSet);
+        logger.info("key {}", key);
+        String podSetName = key.split("/")[1];
+        return podSetLister.get(podSetName);
+    }
+
+    private void handleCreatedPodSet(PodSet podSet){
+        logger.info("enqueuePodSet({})",podSet.getMetadata().getName());
+        logger.info("podset change detected in namespace {}",podSet.getMetadata().getNamespace());
         podSet.setUniqueID(UUID.randomUUID().toString());
         List<String> pods = podCountByLabel(APP_LABEL, podSet.getMetadata().getName());
 
@@ -122,7 +131,8 @@ public class PodSetController {
             System.exit(0);
         }
         logger.info("Getting UniQUE ID OF PODSET {}",podSet.getUniqueID());
-        PodSetStatus podSetStatus = new PodSetStatus(podSet.getSpec().getReplicas(),podSet.getUniqueID().toString());
+        PodSetStatus podSetStatus = new PodSetStatus(podSet.getSpec().getReplicas(),
+                podSet.getUniqueID().toString());
         podSet.setStatus(podSetStatus);
         try{
             logger.info("just before updating label");
