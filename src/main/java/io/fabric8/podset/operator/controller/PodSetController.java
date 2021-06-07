@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 public class PodSetController {
     public static final Logger logger = LoggerFactory.getLogger(PodSetController.class);
     public static final String APP_LABEL = "app";
-    private final BlockingQueue<String> workqueue;
+
     private final SharedIndexInformer<PodSet> podSetInformer; // does the custom resource event sourcing
     private final SharedIndexInformer<Pod> podInformer; // does the pod event sourcing
     private final Lister<PodSet> podSetLister;
@@ -44,7 +44,7 @@ public class PodSetController {
         this.podSetInformer = podSetInformer;
         this.podLister = new Lister<>(podInformer.getIndexer(), namespace);
         this.podInformer = podInformer;
-        this.workqueue = new ArrayBlockingQueue<>(1024);
+
     }
 
     public void create() {
@@ -134,15 +134,7 @@ public class PodSetController {
         }
     }
 
-    private void enqueuePodSet(PodSet podSet) {
-        logger.info("enqueuePodSet({})",podSet.getMetadata().getName());
-        String key = Cache.metaNamespaceKeyFunc(podSet);
-        logger.info("Going to enqueue key {}", key);
-        if (key != null && !key.isEmpty()) {
-            logger.info("Adding item to workqueue");
-            workqueue.add(key);
-        }
-    }
+
 
     @SneakyThrows
     public void run() {
