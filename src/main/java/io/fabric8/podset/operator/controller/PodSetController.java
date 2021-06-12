@@ -82,7 +82,7 @@ public class PodSetController {
 
             @Override
             public void onDelete(Pod pod, boolean b) {
-                // Do nothing
+               logger.info("pod {} deleted from the namespace {}",pod.getMetadata().getName(),pod.getMetadata().getNamespace());
             }
         });
     }
@@ -99,15 +99,7 @@ public class PodSetController {
         commonPart(newPodSet,newPodSet.getStatus());
     }
 
-    /*
-    * retrieve updated podset
-    * */
-    private PodSet retrievePodSet(PodSet odPodSet){
-        String key = Cache.metaNamespaceKeyFunc(odPodSet);
-        logger.info("key {}", key);
-        String podSetName = key.split("/")[1];
-        return podSetLister.get(podSetName);
-    }
+
 
     private void handleCreatedPodSet(PodSet podSet){
         commonPart(podSet,null);
@@ -126,7 +118,13 @@ public class PodSetController {
     }
 
     private void reconcileRelatedPods(PodSet podSet) {
-        List<String> pods = podCountByLabel(MARKER, podSet.getSpecLabel());
+
+
+        List<String> pods;
+        if(Objects.nonNull(podSet.getStatusLabel()))
+            pods = podCountByLabel(MARKER, podSet.getStatusLabel());
+
+        pods = Collections.emptyList();
 
         if (pods.isEmpty()) {
             createPods(podSet.getNoOfReplicas(), podSet);
@@ -167,9 +165,8 @@ public class PodSetController {
     public void run() {
         logger.info("Starting PodSet controller");
         while (!podInformer.hasSynced() || !podSetInformer.hasSynced()) {
-           logger.info("waiting for podInformer & podInformer");
+           logger.debug("waiting for podInformer & podInformer");
         }
-
         while (true) {
         }
     }
@@ -209,10 +206,14 @@ public class PodSetController {
 
 
     private void handlePodObject(Pod pod) {
-        //logger.info("handlePodObject({})", pod.getMetadata().getName());
         OwnerReference ownerReference = getControllerOf(pod);
-        logger.info("Called By Method {}",Thread.currentThread().getStackTrace()[2].getMethodName());
-        Objects.requireNonNull(ownerReference);
+
+        if(Objects.isNull(ownerReference)){
+            logger.warn("ownerReference is null");
+            return;
+        }
+
+
         if (!ownerReference.getKind().equalsIgnoreCase("PodSet")) {
             return;
         }
@@ -227,7 +228,16 @@ public class PodSetController {
 
         Map<String,String> labels = new HashMap<>();
         labels.put(APP_LABEL, podSet.getName());
-        labels.put(MARKER, podSet.getSpecLabel());
+
+        if(Objects.isNull(podSet.getStatusLabel()) || podSet.getStatusLabel().isEmpty()){
+            logger.warn("podSet.getStatusLabel() value not found!");
+            labels.put(MARKER, podSet.getUniqueID());
+        }else{
+            labels.put(MARKER, podSet.getStatusLabel());
+        }
+
+
+
 
         return new PodBuilder()
                 .withNewMetadata()
@@ -251,5 +261,15 @@ public class PodSetController {
             }
         }
         return null;
+    }
+
+    /*
+     * retrieve updated podset
+     * */
+    private PodSet retrievePodSet(PodSet odPodSet){
+        String key = Cache.metaNamespaceKeyFunc(odPodSet);
+        logger.info("key {}", key);
+        String podSetName = key.split("/")[1];
+        return podSetLister.get(podSetName);
     }
 }

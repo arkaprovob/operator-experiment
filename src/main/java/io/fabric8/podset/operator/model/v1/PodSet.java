@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @Version("v1")
@@ -34,7 +35,9 @@ public class PodSet extends CustomResource<PodSetSpec, PodSetStatus> implements 
         return getMetadata().getUid();
     }
 
-    public String getSpecLabel(){
+    public String getStatusLabel(){
+        if(Objects.isNull(getStatus()))
+            return null;
         return getStatus().getLabels();
     }
 }
