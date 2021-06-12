@@ -15,8 +15,7 @@ import io.fabric8.podset.operator.model.v1.PodSetList;
 import io.fabric8.podset.operator.model.v1.PodSetStatus;
 
 import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+
 
 
 import lombok.SneakyThrows;
@@ -29,6 +28,7 @@ import org.slf4j.LoggerFactory;
 public class PodSetController {
     public static final Logger logger = LoggerFactory.getLogger(PodSetController.class);
     public static final String APP_LABEL = "app";
+    public static final String MARKER = "marker";
 
     private final SharedIndexInformer<PodSet> podSetInformer; // does the custom resource event sourcing
     private final SharedIndexInformer<Pod> podInformer; // does the pod event sourcing
@@ -114,39 +114,47 @@ public class PodSetController {
     }
 
     public void commonPart(PodSet podSet,PodSetStatus podSetStatus){
-        logger.info("enqueuePodSet({})",podSet.getMetadata().getName());
-        logger.info("podset change detected in namespace {}",podSet.getMetadata().getNamespace());
+        logger.info("enqueuePodSet({})",podSet.getName());
+        logger.info("podset change detected in namespace {}",podSet.getNameSpace());
+
         if(Objects.isNull(podSet.getUniqueID()))
             podSet.setUniqueID(UUID.randomUUID().toString());
-        List<String> pods = podCountByLabel(APP_LABEL, podSet.getMetadata().getName());
+
+        reconcileRelatedPods(podSet);
+        logger.info("podset unique id {}",podSet.getUniqueID());
+        updatePodSetStatus(podSet,podSetStatus);
+    }
+
+    private void reconcileRelatedPods(PodSet podSet) {
+        List<String> pods = podCountByLabel(MARKER, podSet.getSpecLabel());
+
         if (pods.isEmpty()) {
-            createPods(podSet.getSpec().getReplicas(), podSet);
+            createPods(podSet.getNoOfReplicas(), podSet);
         }
+
         int existingPods = pods.size();
-        if (existingPods < podSet.getSpec().getReplicas()) {
-            createPods(podSet.getSpec().getReplicas() - existingPods, podSet);
+        if (existingPods < podSet.getNoOfReplicas()) {
+            createPods(podSet.getNoOfReplicas() - existingPods, podSet);
         }
-        int diff = existingPods - podSet.getSpec().getReplicas();
+        int diff = existingPods - podSet.getNoOfReplicas();
         try{
             for (; diff > 0; diff--) {
                 String podName = pods.remove(0);
-                kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).withName(podName).delete();
+                kubernetesClient.pods().inNamespace(podSet.getNameSpace()).withName(podName).delete();
             }
         }catch (Exception e){
             logger.error("unable to delete pod {} ",e.getMessage());
             System.exit(0);
         }
-        logger.info("podset unique id {}",podSet.getUniqueID());
-        updatePodSetStatus(podSet,podSetStatus);
     }
 
     private void updatePodSetStatus(PodSet podSet,PodSetStatus podSetStatus){
         if (Objects.isNull(podSetStatus))
-            podSetStatus = new PodSetStatus(podSet.getSpec().getReplicas(),podSet.getUniqueID());
+            podSetStatus = new PodSetStatus(podSet.getNoOfReplicas(),podSet.getUniqueID());
 
         podSet.setStatus(podSetStatus);
         try{
-            podSetClient.inNamespace(podSet.getMetadata().getNamespace()).withName(podSet.getMetadata().getName()).updateStatus(podSet);
+            podSetClient.inNamespace(podSet.getNameSpace()).withName(podSet.getName()).updateStatus(podSet);
         }catch (Exception e){
             logger.info("failed  {} ",e.getMessage());
             System.exit(0);
@@ -173,7 +181,7 @@ public class PodSetController {
         try{
             for (int index = 0; index < numberOfPods; index++) {
                 Pod pod = createNewPod(podSet);
-                kubernetesClient.pods().inNamespace(podSet.getMetadata().getNamespace()).create(pod);
+                kubernetesClient.pods().inNamespace(podSet.getNameSpace()).create(pod);
             }
         }catch(Exception e){
             logger.error("failed to create pod due  to {}",e.getMessage());
@@ -182,12 +190,12 @@ public class PodSetController {
 
     }
 
-    private List<String> podCountByLabel(String label, String podSetName) {
+    private List<String> podCountByLabel(String label, String value) {
         List<String> podNames = new ArrayList<>();
         List<Pod> pods = podLister.list();
 
         for (Pod pod : pods) {
-            if (pod.getMetadata().getLabels().entrySet().contains(new AbstractMap.SimpleEntry<>(label, podSetName))) {
+            if (pod.getMetadata().getLabels().entrySet().contains(new AbstractMap.SimpleEntry<>(label, value))) {
                 if (pod.getStatus().getPhase().equals("Running") || pod.getStatus().getPhase().equals("Pending")) {
                     podNames.add(pod.getMetadata().getName());
                 }
@@ -201,8 +209,9 @@ public class PodSetController {
 
 
     private void handlePodObject(Pod pod) {
-        logger.info("handlePodObject({})", pod.getMetadata().getName());
+        //logger.info("handlePodObject({})", pod.getMetadata().getName());
         OwnerReference ownerReference = getControllerOf(pod);
+        logger.info("Called By Method {}",Thread.currentThread().getStackTrace()[2].getMethodName());
         Objects.requireNonNull(ownerReference);
         if (!ownerReference.getKind().equalsIgnoreCase("PodSet")) {
             return;
@@ -215,12 +224,18 @@ public class PodSetController {
 
 
     private Pod createNewPod(PodSet podSet) {
+
+        Map<String,String> labels = new HashMap<>();
+        labels.put(APP_LABEL, podSet.getName());
+        labels.put(MARKER, podSet.getSpecLabel());
+
         return new PodBuilder()
                 .withNewMetadata()
-                .withGenerateName(podSet.getMetadata().getName() + "-pod")
-                .withNamespace(podSet.getMetadata().getNamespace())
-                .withLabels(Collections.singletonMap(APP_LABEL, podSet.getMetadata().getName()))
-                .addNewOwnerReference().withController(true).withKind("PodSet").withApiVersion("demo.k8s.io/v1").withName(podSet.getMetadata().getName()).withNewUid(podSet.getMetadata().getUid()).endOwnerReference()
+                .withGenerateName(podSet.getName() + "-pod")
+                .withNamespace(podSet.getNameSpace())
+                .withLabels(labels)
+                .addNewOwnerReference().withController(true).withKind("PodSet").withApiVersion("demo.k8s.io/v1")
+                .withName(podSet.getName()).withUid(podSet.getUid()).endOwnerReference()
                 .endMetadata()
                 .withNewSpec()
                 .addNewContainer().withName("busybox").withImage("busybox").withCommand("sleep", "3600").endContainer()

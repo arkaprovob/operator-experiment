@@ -10,4 +10,8 @@ import lombok.ToString;
 public class PodSetSpec {
     private int replicas;
     private String lmap;
+
+    public static int getReplicas(PodSet podSet){
+        return podSet.getSpec().getReplicas();
+    }
 }

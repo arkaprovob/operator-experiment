@@ -17,4 +17,24 @@ import java.util.UUID;
 @ToString
 public class PodSet extends CustomResource<PodSetSpec, PodSetStatus> implements Namespaced {
     private String uniqueID;
+
+    public int getNoOfReplicas(){
+        return this.getSpec().getReplicas();
+    }
+
+    public String getNameSpace(){
+        return getMetadata().getNamespace();
+    }
+
+    public String getName(){
+        return getMetadata().getName();
+    }
+
+    public String getUid(){
+        return getMetadata().getUid();
+    }
+
+    public String getSpecLabel(){
+        return getStatus().getLabels();
+    }
 }
