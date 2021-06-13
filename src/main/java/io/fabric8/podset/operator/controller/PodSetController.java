@@ -15,7 +15,7 @@ import io.fabric8.podset.operator.model.v1.PodSetList;
 import io.fabric8.podset.operator.model.v1.PodSetStatus;
 
 import java.util.*;
-
+import java.util.stream.Collectors;
 
 
 import lombok.SneakyThrows;
@@ -62,7 +62,7 @@ public class PodSetController {
 
             @Override
             public void onDelete(PodSet podSet, boolean b) {
-                logger.info("deleting pod set");
+                handleDeletePodSet(podSet);
             }
         });
 
@@ -85,6 +85,22 @@ public class PodSetController {
                logger.info("pod {} deleted from the namespace {}",pod.getMetadata().getName(),pod.getMetadata().getNamespace());
             }
         });
+    }
+
+    private void handleDeletePodSet(PodSet podSet) {
+        logger.info("deleting pod set");
+        String markerLabel = podSet.getStatusLabel();
+        if(Objects.isNull(markerLabel)){
+            logger.warn("something went wrong, marker label should not be null at this point");
+            return;
+        }
+        List<Pod> pods = podLister.list().stream().filter(pod->pod.getMetadata().getLabels().get(MARKER).equals(markerLabel)).collect(Collectors.toList());
+        logger.info("with the given criteria there {} pods in the namespace {}",pods.size(),podSet.getNameSpace());
+
+        pods.forEach(pod->{
+            kubernetesClient.pods().inNamespace(podSet.getNameSpace()).withName(pod.getMetadata().getName()).delete();
+        });
+
     }
 
     private void handleUpdatePodSet(PodSet podSet, PodSet newPodSet) {
@@ -119,18 +135,16 @@ public class PodSetController {
 
     private void reconcileRelatedPods(PodSet podSet) {
 
+        logger.info("1. inside reconcileRelatedPods method");
 
         List<String> pods;
-        if(Objects.nonNull(podSet.getStatusLabel()))
+        if(Objects.nonNull(podSet.getStatusLabel())){
             pods = podCountByLabel(MARKER, podSet.getStatusLabel());
-
-        pods = Collections.emptyList();
-
-        if (pods.isEmpty()) {
-            createPods(podSet.getNoOfReplicas(), podSet);
+        }else{
+            pods = Collections.emptyList();
         }
-
         int existingPods = pods.size();
+        logger.info("3. no of existing pods are {}",existingPods);
         if (existingPods < podSet.getNoOfReplicas()) {
             createPods(podSet.getNoOfReplicas() - existingPods, podSet);
         }
@@ -175,10 +189,12 @@ public class PodSetController {
 
 
     private void createPods(int numberOfPods, PodSet podSet) {
+        logger.info("creating {} pods ",numberOfPods);
         try{
             for (int index = 0; index < numberOfPods; index++) {
                 Pod pod = createNewPod(podSet);
                 kubernetesClient.pods().inNamespace(podSet.getNameSpace()).create(pod);
+                logger.info("pod {} created  ",index);
             }
         }catch(Exception e){
             logger.error("failed to create pod due  to {}",e.getMessage());
@@ -202,6 +218,7 @@ public class PodSetController {
         logger.info("count: {}", podNames.size());
         return podNames;
     }
+
 
 
 

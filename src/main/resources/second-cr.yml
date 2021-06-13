@@ -3,4 +3,4 @@ kind: PodSet
 metadata:
   name: dummy-podset
 spec:
-  replicas: 2
+  replicas: 3
